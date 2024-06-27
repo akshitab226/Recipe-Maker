@@ -66,8 +66,8 @@ def gpt_output(recipe_list: list):
             {"role": "system", "content": """You are a chef making 3 recipes
              based on 3 sets of ingredients given to you."""},
             {"role": "user", "content": f"""Construct 3 separate recipes with
-            the corresponding ingredients from the list provided:{recipe_list}
-            """}
+            the corresponding ingredients from the list provided:{recipe_list},
+            and start each recipe with the format Recipe 1., etc"""}
         ]
     )
     output = (completion.choices[0].message.content)
@@ -101,21 +101,22 @@ def store_in_db(recipe_list: list, gpt_out_recipe: str):
     pattern = re.compile(r"""
     Title:\s+(?P<title>.*)\n
     Image:\s+(.*)\n
-    Used\ Ingredients:\s*(?P<used_ingredients>(?:\n\s*-\s*.*)+)\n
-    Missed\ Ingredients\ \(\d+\):\s*(?P<missed_ingredients>(?:\n\s*-\s*.*)+)
-    """, re.VERBOSE)
+    Used\ Ingredients:\s*(?P<used_ingredients>(?:\n\s*-\s*.*)+)\n\s*
+    Missed\ Ingredients\s*\(\d+\):\s*(?P<missed_ingredients>(?:\n\s*-\s*.*)+)
+    """, re.VERBOSE | re.DOTALL)
 
     # Pattern for ingredients groups
     pat_for_ing = re.compile(r"\s*-\s*(.*)")
 
     # Array for gpt_output recipes
-    generated_recipes_array = re.split(r"### \d+. ", gpt_out_recipe)
+    generated_recipes_array = re.split(r"### Recipe", gpt_out_recipe)
     count = 1
 
     # Matching groups of regex's and inserting title, ingredients, and the
     # recipe given by GPT into user's personal database
     for recipe in recipe_list:
         match = pattern.search(recipe)
+        print(count)
         if match:
             title = match.group('title')
             used_ing = match.group('used_ingredients')
@@ -124,12 +125,12 @@ def store_in_db(recipe_list: list, gpt_out_recipe: str):
             mi_list = [m.group(1) for m in pat_for_ing.finditer(miss_ing)]
             all_ingredients = ui_list + mi_list
             my_recipe = generated_recipes_array[count]
-            c.execute('''INSERT INTO My_Recipes (Title, Ingredients, Recipes)
-                        VALUES (?, ?, ?)''',
+            c.execute('''INSERT INTO My_Recipes (Title, Ingredients, Recipes) VALUES (?, ?, ?)''',
                       (title, json.dumps(all_ingredients), my_recipe))
             count += 1
-        else:
-            print("Something went wrong, please re-run and enter valid inputs")
+            print(count)
+            print("************************************************")
+
 
     conn.commit()
     conn.close()
@@ -141,3 +142,4 @@ if __name__ == '__main__':
     gpt_recipes = gpt_output(recipe_list)
     redirect_output(gpt_recipes)
     store_in_db(recipe_list, gpt_recipes)
+
