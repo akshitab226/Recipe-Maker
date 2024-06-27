@@ -15,6 +15,7 @@ jobs:
       - name: Install tools
         run: |
           python -m pip install --upgrade pip pytest
+          pip install requests
           pip install coverage                           
 
       - name: Test with unittest
