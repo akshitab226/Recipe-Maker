@@ -15,8 +15,7 @@ jobs:
       - name: Install tools
         run: |
           python -m pip install --upgrade pip pytest
-          pip install requests
-          pip install coverage                           
+          pip install -r req.txt                         
 
       - name: Test with unittest
         run: python3 -m unittest test_recipe_maker.py
