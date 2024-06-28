@@ -4,6 +4,7 @@ import json
 import os
 from openai import OpenAI
 import re
+import sys
 
 
 # Function input_ingredients asks for the user to input the ingredients that
@@ -17,6 +18,7 @@ def input_ingredients():
         count += 1
         arr.append(ing)
     ingredients = ','.join(arr)
+    print("")
     return ingredients
 
 
@@ -25,6 +27,7 @@ def input_ingredients():
 # which require those ingredients and the response data is printed
 def fetch_recipes():
     ingredients = input_ingredients()
+    print("Fetching Ideas.......")
     api_key = os.getenv('API_KEY_FOOD')
     url = 'https://api.spoonacular.com/recipes/findByIngredients'
     params = {
@@ -51,7 +54,8 @@ def fetch_recipes():
             recipe_input += f"""  - {ingredient['name']}:
             {ingredient['amount']} {ingredient['unit']}\n"""
         recipe_list.append(recipe_input)
-
+    print("Fetched Ideas! Thank you for your patience :)")
+    print("")
     return recipe_list
 
 
@@ -59,6 +63,7 @@ def fetch_recipes():
 # other information. The function uses openai api on the recipe_list and
 # generates proper recipes and returns the 3 recipes.
 def gpt_output(recipe_list: list):
+    print("Building Recipes.......")
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     completion = client.chat.completions.create(
         model="gpt-4o",
@@ -66,20 +71,22 @@ def gpt_output(recipe_list: list):
             {"role": "system", "content": """You are a chef making 3 recipes
              based on 3 sets of ingredients given to you."""},
             {"role": "user", "content": f"""Construct 3 separate recipes with
-            the corresponding ingredients from the list provided:{recipe_list},
-            and start each recipe with the format Recipe 1., etc"""}
+            the corresponding ingredients from the list provided:{recipe_list}
+            """}
         ]
     )
     output = (completion.choices[0].message.content)
+    print("Fetched Recipes! Thank you for your patience :)")
+    print("")
     return output
 
 
 # Function has parameter - markdown_content. Function opens a file, writes the
 # parameter's content and prints a success message.
 def redirect_output(markdown_content: list):
-    with open("Recipe2.md", "w") as file:
+    with open("Recipe.md", "w") as file:
         file.write(markdown_content)
-    print("Markdown file created successfully.")
+    print("View your Recipes in Recipe.md!")
 
 
 # Function has 2 params - recipe_list and gpt_out_recipe. It parses through
@@ -109,14 +116,18 @@ def store_in_db(recipe_list: list, gpt_out_recipe: str):
     pat_for_ing = re.compile(r"\s*-\s*(.*)")
 
     # Array for gpt_output recipes
-    generated_recipes_array = re.split(r"### Recipe", gpt_out_recipe)
-    count = 1
+    # generated_recipes_array = re.split(r"---", gpt_out_recipe)
+    # if len(generated_recipes_array) < 3:
+    #     print("""Unfortunately, GPT is down! 
+    #         No worries, we have our trial output ready in this case!""")
+    #     sys.exit()
+    # count = 0
+    # print(f"LENGTH: {len(generated_recipes_array)}")
 
     # Matching groups of regex's and inserting title, ingredients, and the
     # recipe given by GPT into user's personal database
     for recipe in recipe_list:
         match = pattern.search(recipe)
-        print(count)
         if match:
             title = match.group('title')
             used_ing = match.group('used_ingredients')
@@ -124,13 +135,10 @@ def store_in_db(recipe_list: list, gpt_out_recipe: str):
             ui_list = [m.group(1) for m in pat_for_ing.finditer(used_ing)]
             mi_list = [m.group(1) for m in pat_for_ing.finditer(miss_ing)]
             all_ingredients = ui_list + mi_list
-            my_recipe = generated_recipes_array[count]
-            c.execute('''INSERT INTO My_Recipes (Title, Ingredients, Recipes) VALUES (?, ?, ?)''',
-                      (title, json.dumps(all_ingredients), my_recipe))
-            count += 1
-            print(count)
-            print("************************************************")
-
+            c.execute('''INSERT INTO My_Recipes (Title, Ingredients, Recipes) 
+                VALUES (?, ?, ?)''',
+                      (title, json.dumps(all_ingredients), gpt_out_recipe))
+            # count += 1
 
     conn.commit()
     conn.close()
@@ -142,4 +150,3 @@ if __name__ == '__main__':
     gpt_recipes = gpt_output(recipe_list)
     redirect_output(gpt_recipes)
     store_in_db(recipe_list, gpt_recipes)
-
